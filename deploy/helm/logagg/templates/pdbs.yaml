@@ -1,0 +1,15 @@
+{{- range .Values.services }}
+{{- if or .pdb.enabled $.Values.serviceDefaults.pdb.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ printf "%s-%s" $.Release.Name .name }}
+spec:
+  minAvailable: {{ default $.Values.serviceDefaults.pdb.minAvailable .pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .name }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+{{- end }}
+{{- end }}
