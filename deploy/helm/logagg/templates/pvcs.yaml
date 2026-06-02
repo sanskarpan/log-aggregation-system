@@ -1,0 +1,19 @@
+{{- range .Values.services }}
+{{- if or .persistence.enabled $.Values.serviceDefaults.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ printf "%s-%s-data" $.Release.Name .name }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ default $.Values.serviceDefaults.persistence.size .persistence.size }}
+  {{- $storageClass := default $.Values.serviceDefaults.persistence.storageClassName .persistence.storageClassName }}
+  {{- if $storageClass }}
+  storageClassName: {{ $storageClass }}
+  {{- end }}
+{{- end }}
+{{- end }}
