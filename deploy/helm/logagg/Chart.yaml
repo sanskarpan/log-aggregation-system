@@ -1,0 +1,7 @@
+apiVersion: v2
+name: logagg
+description: Helm scaffold for the log aggregation platform
+type: application
+version: 0.1.0
+appVersion: 0.1.0-dev
+
