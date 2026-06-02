@@ -1,0 +1,106 @@
+{{- range .Values.services }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-%s" $.Release.Name .name }}
+spec:
+  replicas: {{ .replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .name }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .name }}
+        app.kubernetes.io/instance: {{ $.Release.Name }}
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: {{ .name }}
+                    app.kubernetes.io/instance: {{ $.Release.Name }}
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: {{ .name }}
+          image: "{{ $.Values.global.imageRepository }}:{{ $.Values.global.imageTag }}"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SERVICE_HTTP_ADDR
+              value: ":{{ .port }}"
+            {{- if .persistence.enabled }}
+            - name: DATA_DIR
+              value: "{{ .persistence.mountPath }}"
+            {{- end }}
+            {{- if $.Values.global.tls.enabled }}
+            - name: TLS_ENABLED
+              value: "true"
+            - name: TLS_CERT_FILE
+              value: "/var/run/logagg/tls/tls.crt"
+            - name: TLS_KEY_FILE
+              value: "/var/run/logagg/tls/tls.key"
+            - name: TLS_CLIENT_CERT_FILE
+              value: "/var/run/logagg/tls/tls.crt"
+            - name: TLS_CLIENT_KEY_FILE
+              value: "/var/run/logagg/tls/tls.key"
+            - name: TLS_CLIENT_CA_FILE
+              value: "/var/run/logagg/client-ca/ca.crt"
+            - name: TLS_ROOT_CA_FILE
+              value: "/var/run/logagg/client-ca/ca.crt"
+            {{- end }}
+            {{- if $.Values.global.observability.traceEnabled }}
+            - name: TRACE_ENABLED
+              value: "true"
+            {{- end }}
+          resources:
+            {{- if .resources }}
+{{ toYaml .resources | nindent 12 }}
+            {{- else if $.Values.serviceDefaults.resources }}
+{{ toYaml $.Values.serviceDefaults.resources | nindent 12 }}
+            {{- end }}
+          ports:
+            - containerPort: {{ .port }}
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: {{ .port }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .port }}
+          volumeMounts:
+            {{- if .persistence.enabled }}
+            - name: data
+              mountPath: {{ .persistence.mountPath }}
+            {{- end }}
+            {{- if $.Values.global.tls.enabled }}
+            - name: tls
+              mountPath: /var/run/logagg/tls
+              readOnly: true
+            - name: client-ca
+              mountPath: /var/run/logagg/client-ca
+              readOnly: true
+            {{- end }}
+      {{- if or .persistence.enabled $.Values.global.tls.enabled }}
+      volumes:
+        {{- if .persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ printf "%s-%s-data" $.Release.Name .name }}
+        {{- end }}
+        {{- if $.Values.global.tls.enabled }}
+        - name: tls
+          secret:
+            secretName: {{ $.Values.global.tls.serverCertSecret }}
+        - name: client-ca
+          secret:
+            secretName: {{ $.Values.global.tls.clientCASecret }}
+        {{- end }}
+      {{- end }}
+      {{- end }}
+{{- end }}

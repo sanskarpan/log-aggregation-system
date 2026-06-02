@@ -1,0 +1,133 @@
+global:
+  imageRepository: ghcr.io/example/logagg
+  imageTag: 0.1.0-dev
+  tls:
+    enabled: false
+    serverCertSecret: ""
+    clientCASecret: ""
+  observability:
+    prometheusScrape: true
+    traceEnabled: false
+
+serviceDefaults:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  pdb:
+    enabled: true
+    minAvailable: 1
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+  persistence:
+    enabled: false
+    mountPath: /var/lib/logagg
+    size: 20Gi
+    storageClassName: ""
+
+services:
+  - name: gateway
+    port: 8080
+    replicas: 2
+    pdb:
+      enabled: true
+      minAvailable: 1
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 70
+  - name: distributor
+    port: 8080
+    replicas: 2
+    pdb:
+      enabled: true
+      minAvailable: 1
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 70
+  - name: parser
+    port: 8080
+    replicas: 2
+    pdb:
+      enabled: true
+      minAvailable: 1
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 70
+  - name: ingester
+    port: 8080
+    replicas: 3
+    pdb:
+      enabled: true
+      minAvailable: 2
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 65
+    persistence:
+      enabled: true
+      mountPath: /var/lib/logagg
+      size: 100Gi
+      storageClassName: fast-ssd
+  - name: indexer
+    port: 8080
+    replicas: 2
+    pdb:
+      enabled: true
+      minAvailable: 1
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 70
+  - name: query-frontend
+    port: 8080
+    replicas: 2
+    pdb:
+      enabled: true
+      minAvailable: 1
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 70
+  - name: querier
+    port: 8080
+    replicas: 3
+    pdb:
+      enabled: true
+      minAvailable: 2
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 65
+  - name: compactor
+    port: 8080
+    replicas: 1
+    pdb:
+      enabled: true
+      minAvailable: 1
+  - name: control-plane
+    port: 8080
+    replicas: 2
+    pdb:
+      enabled: true
+      minAvailable: 1
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 70

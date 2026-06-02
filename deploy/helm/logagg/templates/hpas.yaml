@@ -1,0 +1,23 @@
+{{- range .Values.services }}
+{{- if or .autoscaling.enabled $.Values.serviceDefaults.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ printf "%s-%s" $.Release.Name .name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ printf "%s-%s" $.Release.Name .name }}
+  minReplicas: {{ default $.Values.serviceDefaults.autoscaling.minReplicas .autoscaling.minReplicas }}
+  maxReplicas: {{ default $.Values.serviceDefaults.autoscaling.maxReplicas .autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ default $.Values.serviceDefaults.autoscaling.targetCPUUtilizationPercentage .autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}

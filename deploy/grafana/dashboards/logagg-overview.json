@@ -1,0 +1,34 @@
+{
+  "uid": "logagg-overview",
+  "title": "LogAgg Overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP Requests",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (service, path, status) (http_requests_total)",
+          "legendFormat": "{{service}} {{path}} {{status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP Latency P95",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, service, path) (rate(http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{service}} {{path}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
