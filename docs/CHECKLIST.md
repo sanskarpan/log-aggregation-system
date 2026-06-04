@@ -250,22 +250,22 @@ This checklist is intended to drive future implementation passes without re-plan
 ### Exit Criteria
 
 - [x] Multi-tenant quotas are enforced.
-- [ ] Production deployment docs are usable without repository knowledge.
-- [ ] SLO dashboards and core alerts are in place.
-- [ ] Security posture is documented and testable.
+- [x] Production deployment docs are usable without repository knowledge.
+- [x] SLO dashboards and core alerts are in place.
+- [x] Security posture is documented and testable.
 
 ## Cross-Cutting Gates
 
 ### Before Merging Any Major Feature
 
-- [ ] Unit tests cover success and failure paths.
-- [ ] Public or internal API changes are reflected in `docs/API.md`.
-- [ ] Architecture-impacting decisions are captured in an ADR when needed.
-- [ ] Metrics and logs are added for operationally significant behavior.
+- [x] Unit tests cover success and failure paths.
+- [x] Public or internal API changes are reflected in `docs/API.md`.
+- [x] Architecture-impacting decisions are captured in an ADR when needed.
+- [x] Metrics and logs are added for operationally significant behavior.
 
 ### Before Calling A Phase Complete
 
-- [ ] The checklist items for that phase are updated.
-- [ ] Relevant docs are refreshed.
-- [ ] Manual verification steps are written down.
-- [ ] Known gaps are recorded in `docs/ROADMAP.md` or follow-up issues.
+- [x] The checklist items for that phase are updated.
+- [x] Relevant docs are refreshed.
+- [x] Manual verification steps are written down.
+- [x] Known gaps are recorded in `docs/ROADMAP.md` or follow-up issues.

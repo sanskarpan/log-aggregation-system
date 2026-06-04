@@ -15,10 +15,24 @@ Each service should expose:
 - request counts and latencies
 - request traces via OpenTelemetry when `TRACE_ENABLED=true`
 - privileged-request audit logging when `AUDIT_LOG_PATH` is configured
-- queue depth and backpressure metrics
+- queue depth, queue lag, and backpressure metrics
 - cache hit ratios
 - WAL replay duration
 - chunk flush and compaction timings
+- compactor freshness and last-run duration signals
+
+Operational dashboards should include:
+
+- HTTP request rate and latency
+- queue lag by topic and partition
+- compactor last-success age
+
+Operational alerts should include:
+
+- `LogAggHighRequestErrorRate`
+- `LogAggHighQueryLatency`
+- `LogAggHighQueueLag`
+- `LogAggStaleCompactorRun`
 
 ## Runbooks
 
@@ -30,6 +44,7 @@ Prepare runbooks for:
 - etcd quorum loss
 - PostgreSQL latency or failover
 - compaction lag
+- stale compactor runs and queue buildup
 
 ## Capacity Planning
 
