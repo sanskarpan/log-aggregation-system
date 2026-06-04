@@ -16,7 +16,7 @@ import (
 	"github.com/sanskar/log-aggregation-system/internal/platform/tracing"
 )
 
-func RunHTTP(cfg config.Config, handler http.Handler) error {
+func RunHTTP(cfg config.Config, handler http.Handler, providers ...httpguard.MetricProvider) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -43,10 +43,11 @@ func RunHTTP(cfg config.Config, handler http.Handler) error {
 	}
 
 	guard := httpguard.New(httpguard.Config{
-		ServiceName:   cfg.ServiceName,
-		AuthRequired:  cfg.AuthRequired,
-		Authenticator: authenticator,
-		AuditPath:     cfg.AuditLogPath,
+		ServiceName:     cfg.ServiceName,
+		AuthRequired:    cfg.AuthRequired,
+		Authenticator:   authenticator,
+		AuditPath:       cfg.AuditLogPath,
+		MetricProviders: providers,
 	})
 
 	server := &http.Server{
