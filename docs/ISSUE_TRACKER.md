@@ -8,3 +8,4 @@
 - #58 Wire compactor main to export compactor metrics
 - #60 Add Prometheus alerts for queue lag and stale compactor runs
 - #61 Document the new SLO signals in operations guidance
+- #62 Mark SLO dashboards and alerts complete in the checklist
