@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -126,6 +127,38 @@ func TestQueuedNativeIngestAndQueueStats(t *testing.T) {
 	}
 	if !bytes.Contains(replayRes.Body.Bytes(), []byte(queue.TopicNormalizedEvents)) {
 		t.Fatalf("expected replayed normalized topic in response: %s", replayRes.Body.String())
+	}
+}
+
+func TestQueuedServerCustomMetrics(t *testing.T) {
+	engine, err := singlenode.New(t.TempDir())
+	if err != nil {
+		t.Fatalf("new engine: %v", err)
+	}
+	defer engine.Close()
+
+	broker := queue.NewMemoryBroker(2)
+	server := NewQueuedServer(engine, broker)
+
+	_, err = broker.Publish(context.Background(), queue.PublishRequest{
+		Topic: queue.TopicNormalizedEvents,
+		Key:   "tenant-a|stream-1",
+		Event: model.Event{
+			TenantID:  "tenant-a",
+			Timestamp: time.Now().UTC(),
+			Body:      `{"service":"checkout","message":"queued"}`,
+		},
+	})
+	if err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+
+	metrics := strings.Join(server.CustomMetrics(), "")
+	if !strings.Contains(metrics, `logagg_queue_lag{service="gateway",topic="logs.normalized.v1"`) {
+		t.Fatalf("expected queue lag metric, got %s", metrics)
+	}
+	if !strings.Contains(metrics, `logagg_queue_high_watermark{service="gateway",topic="logs.normalized.v1"`) {
+		t.Fatalf("expected high watermark metric, got %s", metrics)
 	}
 }
 

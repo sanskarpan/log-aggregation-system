@@ -53,7 +53,7 @@ func main() {
 		broker = queue.NewMemoryBroker(cfg.QueuePartitions)
 	}
 	server := gateway.NewQueuedServer(engine, broker)
-	if err := runtime.RunHTTP(cfg, server.Handler()); err != nil {
+	if err := runtime.RunHTTP(cfg, server.Handler(), server); err != nil {
 		log.Fatal(err)
 	}
 }
