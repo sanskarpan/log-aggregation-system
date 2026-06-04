@@ -17,11 +17,16 @@ import (
 )
 
 type Config struct {
-	ServiceName   string
-	AuthRequired  bool
-	Authenticator authn.Authenticator
-	AuditPath     string
-	ScopesByRoute []ScopeRule
+	ServiceName     string
+	AuthRequired    bool
+	Authenticator   authn.Authenticator
+	AuditPath       string
+	ScopesByRoute   []ScopeRule
+	MetricProviders []MetricProvider
+}
+
+type MetricProvider interface {
+	CustomMetrics() []string
 }
 
 type ScopeRule struct {
@@ -86,7 +91,27 @@ func (g *Guard) Wrap(next http.Handler) http.Handler {
 func (g *Guard) handleMetrics(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(g.metrics.render(g.buckets)))
+	_, _ = w.Write([]byte(g.renderMetrics()))
+}
+
+func (g *Guard) renderMetrics() string {
+	var buf bytes.Buffer
+	buf.WriteString(g.metrics.render(g.buckets))
+	for _, provider := range g.cfg.MetricProviders {
+		if provider == nil {
+			continue
+		}
+		for _, line := range provider.CustomMetrics() {
+			if strings.TrimSpace(line) == "" {
+				continue
+			}
+			if !strings.HasSuffix(line, "\n") {
+				line += "\n"
+			}
+			buf.WriteString(line)
+		}
+	}
+	return buf.String()
 }
 
 func (g *Guard) authorize(r *http.Request) (authn.Principal, int, string) {

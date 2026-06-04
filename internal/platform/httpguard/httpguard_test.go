@@ -43,6 +43,36 @@ func TestGuardExposesMetrics(t *testing.T) {
 	}
 }
 
+type stubMetricProvider struct{}
+
+func (stubMetricProvider) CustomMetrics() []string {
+	return []string{
+		"# HELP custom_metric_example Example custom metric.\n",
+		"# TYPE custom_metric_example gauge\n",
+		"custom_metric_example{service=\"gateway\"} 7\n",
+	}
+}
+
+func TestGuardAppendsCustomMetrics(t *testing.T) {
+	guard := New(Config{
+		ServiceName:     "gateway",
+		MetricProviders: []MetricProvider{stubMetricProvider{}},
+	})
+	handler := guard.Wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("unexpected metrics status: %d", res.Code)
+	}
+	if !strings.Contains(res.Body.String(), `custom_metric_example{service="gateway"} 7`) {
+		t.Fatalf("expected custom metric in output, got %s", res.Body.String())
+	}
+}
+
 func TestGuardAuthAndScopes(t *testing.T) {
 	guard := New(Config{
 		ServiceName:   "gateway",
