@@ -54,6 +54,44 @@ func NewQueuedServer(engine *singlenode.Engine, broker queue.Broker) *Server {
 	return server
 }
 
+func (s *Server) CustomMetrics() []string {
+	if s == nil || s.broker == nil {
+		return nil
+	}
+	stats := s.broker.Stats(context.Background())
+	if len(stats) == 0 {
+		return nil
+	}
+	lines := []string{
+		"# HELP logagg_queue_lag Current queue lag by topic and partition.\n",
+		"# TYPE logagg_queue_lag gauge\n",
+		"# HELP logagg_queue_committed Current committed offsets by topic and partition.\n",
+		"# TYPE logagg_queue_committed gauge\n",
+		"# HELP logagg_queue_high_watermark Current high watermark by topic and partition.\n",
+		"# TYPE logagg_queue_high_watermark gauge\n",
+	}
+	for _, stat := range stats {
+		highWatermark := int64(0)
+		for _, watermark := range stat.HighWatermark {
+			highWatermark += watermark
+		}
+		committed := int64(0)
+		for _, value := range stat.Committed {
+			committed += value
+		}
+		lag := highWatermark - committed
+		if lag < 0 {
+			lag = 0
+		}
+		lines = append(lines,
+			fmt.Sprintf("logagg_queue_lag{service=%q,topic=%q} %d\n", "gateway", stat.Topic, lag),
+			fmt.Sprintf("logagg_queue_committed{service=%q,topic=%q} %d\n", "gateway", stat.Topic, committed),
+			fmt.Sprintf("logagg_queue_high_watermark{service=%q,topic=%q} %d\n", "gateway", stat.Topic, highWatermark),
+		)
+	}
+	return lines
+}
+
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	servicehttp.RegisterBaseRoutes(mux, s.desc)
