@@ -17,3 +17,19 @@ groups:
         annotations:
           summary: "LogAgg query latency is high"
           description: "P95 HTTP request latency is above 3 seconds for 10 minutes."
+      - alert: LogAggHighQueueLag
+        expr: max(logagg_queue_lag{service="gateway"}) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LogAgg queue lag is high"
+          description: "Gateway queue lag is above 1000 messages for 10 minutes."
+      - alert: LogAggStaleCompactorRun
+        expr: (max(logagg_compactor_last_success_timestamp_seconds{service="compactor"}) > 0) and (time() - max(logagg_compactor_last_success_timestamp_seconds{service="compactor"}) > 1800)
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LogAgg compactor is stale"
+          description: "The compactor has not completed a successful run for more than 30 minutes."
