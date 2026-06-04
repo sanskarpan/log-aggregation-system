@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sanskar/log-aggregation-system/internal/core/model"
@@ -26,6 +27,14 @@ type Server struct {
 	manifests manifests.Repository
 	objects   objectstore.Store
 	dataDir   string
+	mu        sync.RWMutex
+	lastRun   compactionRunMetrics
+}
+
+type compactionRunMetrics struct {
+	FinishedAt time.Time
+	Duration   time.Duration
+	Response   CompactResponse
 }
 
 type CompactRequest struct {
@@ -102,6 +111,39 @@ func (s *Server) Handler() http.Handler {
 	return mux
 }
 
+func (s *Server) CustomMetrics() []string {
+	if s == nil {
+		return nil
+	}
+	s.mu.RLock()
+	snapshot := s.lastRun
+	s.mu.RUnlock()
+
+	lines := []string{
+		"# HELP logagg_compactor_last_success_timestamp_seconds Unix timestamp of the last successful compaction run.\n",
+		"# TYPE logagg_compactor_last_success_timestamp_seconds gauge\n",
+		"# HELP logagg_compactor_last_run_duration_seconds Duration of the last successful compaction run.\n",
+		"# TYPE logagg_compactor_last_run_duration_seconds gauge\n",
+		"# HELP logagg_compactor_scanned_manifests Compaction manifests scanned by the last successful run.\n",
+		"# TYPE logagg_compactor_scanned_manifests gauge\n",
+		"# HELP logagg_compactor_deleted_manifests Compaction manifests deleted by the last successful run.\n",
+		"# TYPE logagg_compactor_deleted_manifests gauge\n",
+		"# HELP logagg_compactor_deleted_chunks Compaction chunks deleted by the last successful run.\n",
+		"# TYPE logagg_compactor_deleted_chunks gauge\n",
+		"# HELP logagg_compactor_delete_manifests Delete manifests written by the last successful run.\n",
+		"# TYPE logagg_compactor_delete_manifests gauge\n",
+	}
+	lines = append(lines,
+		fmt.Sprintf("logagg_compactor_last_success_timestamp_seconds{service=%q} %d\n", "compactor", snapshot.FinishedAt.Unix()),
+		fmt.Sprintf("logagg_compactor_last_run_duration_seconds{service=%q} %g\n", "compactor", snapshot.Duration.Seconds()),
+		fmt.Sprintf("logagg_compactor_scanned_manifests{service=%q} %d\n", "compactor", snapshot.Response.ScannedManifests),
+		fmt.Sprintf("logagg_compactor_deleted_manifests{service=%q} %d\n", "compactor", snapshot.Response.DeletedManifests),
+		fmt.Sprintf("logagg_compactor_deleted_chunks{service=%q} %d\n", "compactor", snapshot.Response.DeletedChunks),
+		fmt.Sprintf("logagg_compactor_delete_manifests{service=%q} %d\n", "compactor", snapshot.Response.DeleteManifests),
+	)
+	return lines
+}
+
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -132,6 +174,7 @@ func (s *Server) handleCompact(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) Compact(ctx context.Context, req CompactRequest) (CompactResponse, error) {
+	start := time.Now().UTC()
 	tenants := s.tenants.List(ctx)
 	tenantMap := map[string]model.TenantConfig{}
 	for _, tenantCfg := range tenants {
@@ -197,6 +240,13 @@ func (s *Server) Compact(ctx context.Context, req CompactRequest) (CompactRespon
 		resp.ByTenant = append(resp.ByTenant, *summary)
 	}
 	sort.Slice(resp.ByTenant, func(i, j int) bool { return resp.ByTenant[i].TenantID < resp.ByTenant[j].TenantID })
+	s.mu.Lock()
+	s.lastRun = compactionRunMetrics{
+		FinishedAt: time.Now().UTC(),
+		Duration:   time.Since(start),
+		Response:   resp,
+	}
+	s.mu.Unlock()
 	return resp, nil
 }
 

@@ -3,6 +3,7 @@ package compactor
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -196,5 +197,72 @@ func TestCompactSkipsProtectedTenant(t *testing.T) {
 	}
 	if _, _, err := objects.Get(ctx, manifestKey); err != nil {
 		t.Fatalf("expected protected manifest object to remain: %v", err)
+	}
+}
+
+func TestCustomMetricsReflectLastCompaction(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	objects := objectstore.NewFileStore(root)
+	manifestRepo := manifests.NewMemoryRepository()
+	tenants := tenant.NewStore()
+
+	tenantCfg := tenant.DefaultTenantConfig()
+	tenantCfg.ID = "tenant-c"
+	tenantCfg.Limits.Retention = time.Hour
+	if err := tenants.Put(ctx, tenantCfg); err != nil {
+		t.Fatalf("put tenant: %v", err)
+	}
+
+	manifestKey := "segments/2026/06/01/metrics.json"
+	manifest := persistedSegmentManifest{
+		PartitionKey: "2026/06/01/09",
+		Start:        time.Now().UTC().Add(-3 * time.Hour),
+		End:          time.Now().UTC().Add(-2 * time.Hour),
+		GeneratedAt:  time.Now().UTC().Add(-2 * time.Hour),
+		Chunks: []persistedChunkRef{{
+			StreamKey: "tenant-c|service=checkout",
+			ObjectKey: "chunks/metrics.zst",
+			Checksum:  "abc",
+			Start:     time.Now().UTC().Add(-3 * time.Hour),
+			End:       time.Now().UTC().Add(-2 * time.Hour),
+		}},
+	}
+	payload, _ := json.Marshal(manifest)
+	if _, err := objects.Put(ctx, manifestKey, payload); err != nil {
+		t.Fatalf("put manifest object: %v", err)
+	}
+	if _, err := objects.Put(ctx, "chunks/metrics.zst", []byte("payload")); err != nil {
+		t.Fatalf("put chunk: %v", err)
+	}
+	if _, err := manifestRepo.Put(ctx, manifests.Record{
+		Key:          manifestKey,
+		PartitionKey: manifest.PartitionKey,
+		Start:        manifest.Start,
+		End:          manifest.End,
+		Payload:      payload,
+		Checksum:     manifests.Checksum(payload),
+		CreatedAt:    manifest.GeneratedAt,
+	}); err != nil {
+		t.Fatalf("put manifest repo: %v", err)
+	}
+
+	server := NewServerWithDeps(tenants, manifestRepo, objects)
+	resp, err := server.Compact(ctx, CompactRequest{})
+	if err != nil {
+		t.Fatalf("compact: %v", err)
+	}
+	metrics := strings.Join(server.CustomMetrics(), "")
+	if !strings.Contains(metrics, `logagg_compactor_deleted_manifests{service="compactor"} 1`) {
+		t.Fatalf("expected deleted manifests metric, got %s", metrics)
+	}
+	if !strings.Contains(metrics, `logagg_compactor_deleted_chunks{service="compactor"} 1`) {
+		t.Fatalf("expected deleted chunks metric, got %s", metrics)
+	}
+	if !strings.Contains(metrics, `logagg_compactor_last_success_timestamp_seconds{service="compactor"}`) {
+		t.Fatalf("expected last success metric, got %s", metrics)
+	}
+	if resp.DeletedManifests != 1 {
+		t.Fatalf("unexpected compaction response: %+v", resp)
 	}
 }

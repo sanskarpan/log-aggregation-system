@@ -14,7 +14,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := runtime.RunHTTP(cfg, server.Handler()); err != nil {
+	if err := runtime.RunHTTP(cfg, server.Handler(), server); err != nil {
 		log.Fatal(err)
 	}
 }
