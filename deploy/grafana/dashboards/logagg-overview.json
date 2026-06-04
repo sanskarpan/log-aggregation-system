@@ -29,6 +29,30 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Queue Lag",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (service, topic) (logagg_queue_lag)",
+          "legendFormat": "{{service}} {{topic}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Compactor Staleness",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "time() - max(logagg_compactor_last_success_timestamp_seconds{service=\"compactor\"})",
+          "legendFormat": "compactor freshness age",
+          "refId": "A"
+        }
+      ]
     }
   ]
 }
